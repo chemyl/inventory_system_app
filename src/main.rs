@@ -1,3 +1,4 @@
+use cursive::theme::{BaseColor, Color, PaletteColor, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::views::{Dialog, EditView, ListView};
 use cursive::{Cursive, CursiveExt};
@@ -6,7 +7,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, Read};
 use std::sync::{Arc, Mutex};
 
-// derive - макрос для автоматической генерации кода определенных трейтов для структуры
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Product {
     product_type: String,
@@ -43,26 +43,29 @@ fn load_products_from_file() -> Vec<Product> {
 
 fn main() {
     let mut siv = Cursive::default();
+    siv.set_theme(custom_theme());
+
     let products = Arc::new(Mutex::new(load_products_from_file()));
 
-    siv.add_layer(Dialog::new().title("Inventory management")
+    siv.add_layer(Dialog::new()
+        .title("Inventory management")
         .content(ListView::new()
             .child("Product Type: ", EditView::new().with_name("product_type"))
             .child("Quantity: ", EditView::new().with_name("quantity"))
-            .child("Price Per Unit: ", EditView::new().with_name("price_per_unit"))
+            .child("Price per Unit: ", EditView::new().with_name("price_per_unit"))
         )
         .button("Save", {
             let product_clone = Arc::clone(&products);
-            move |siv: &mut Cursive| {
+            move |siv| {
                 let product_type = siv.call_on_name("product_type", |view: &mut EditView| {
-                    view.get_content()
-                }).unwrap().to_string();
+                    view.get_content()}).unwrap().to_string();
+
                 let quantity = siv.call_on_name("quantity", |view: &mut EditView| {
-                    view.get_content()
-                }).unwrap().parse::<usize>().unwrap_or(0);
+                    view.get_content()}).unwrap().parse::<usize>().unwrap_or(0);
+
                 let price_per_unit = siv.call_on_name("price_per_unit", |view: &mut EditView| {
-                    view.get_content()
-                }).unwrap().parse::<f64>().unwrap_or(0.0);
+                    view.get_content()}).unwrap().parse::<f64>().unwrap_or(0.0);
+
                 if product_type.is_empty() {
                     siv.add_layer(Dialog::info("Error: Please enter a product type."));
                     return;
@@ -78,6 +81,7 @@ fn main() {
 
                 let sales_tax = 0.10 * price_per_unit;
                 let total_price = (price_per_unit + sales_tax) * quantity as f64;
+
                 let product = Product {
                     product_type,
                     quantity,
@@ -88,18 +92,20 @@ fn main() {
 
                 let mut product_store = product_clone.lock().unwrap();
                 product_store.push(product.clone());
-
+// Save to file
                 if let Err(err) = save_products_to_file(&product_store) {
                     siv.add_layer(Dialog::info(format!("Error: saving the product: {}", err)));
                 } else {
                     siv.add_layer(Dialog::info("Product saved successfully!"))
                 }
+                siv.call_on_name("product_type", |view: &mut EditView| {view.set_content("");});
+                siv.call_on_name("quantity", |view: &mut EditView| {view.set_content("");});
+                siv.call_on_name("price_per_unit", |view: &mut EditView| {view.set_content("");});
             }
         })
         .button("Show All", {
             let products = Arc::clone(&products);
-            // замыкание, которое срабатывает при нажаитии кнопки show all
-            move |siv: &mut Cursive| {
+            move |siv| {
                 let product_store = products.lock().unwrap();
                 let mut output = String::new();
 
@@ -121,7 +127,7 @@ fn main() {
         })
         .button("Delete by ID", {
             let products = Arc::clone(&products);
-            move |siv: &mut Cursive| {
+            move |siv| {
                 let id_input = EditView::new().with_name("delete_id").min_width(10);
                 siv.add_layer(Dialog::new().title("Delete Product").content(ListView::new().child("Enter product Id to delete:", id_input))
                     .button("Confirm", {
@@ -133,7 +139,6 @@ fn main() {
                             // ID Parsing
                             if let Ok(id) = id_str.parse::<usize>() {
                                 let mut product_store = product_clone.lock().unwrap();
-                                // проверка валидности получаемого id
                                 if id > 0 && id <= product_store.len() {
                                     product_store.remove(id - 1);
                                     if let Err(err) = save_products_to_file(&product_store) {
@@ -153,4 +158,13 @@ fn main() {
         })
         .button("Quit", |siv: &mut Cursive| siv.quit()));
     siv.run();
+}
+fn custom_theme() -> Theme {
+    let mut theme = Theme::retro();
+    theme.palette[PaletteColor::Background] = Color::Light(BaseColor::Cyan);
+    theme.palette[PaletteColor::View] = Color::Light(BaseColor::White);
+    theme.palette[PaletteColor::Primary] = Color::Dark(BaseColor::Black);
+    theme.palette[PaletteColor::Secondary] = Color::Dark(BaseColor::Black);
+    theme.palette[PaletteColor::Highlight] = Color::Light(BaseColor::Green);
+    theme
 }
