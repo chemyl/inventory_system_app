@@ -23,22 +23,37 @@ fn save_products_to_file(products: &Vec<Product>) -> io::Result<()> {
     let file = OpenOptions::new()
         .write(true)
         .create(true)
-        .append(true)
+        .truncate(true)
         .open(FILE_PATH)?;
     serde_json::to_writer(file, products)?;
     Ok(())
 }
 
 fn load_products_from_file() -> Vec<Product> {
-    if let Ok(mut file) = File::open(FILE_PATH) {
-        let mut data = String::new();
-        if file.read_to_string(&mut data).is_ok() {
-            if let Ok(products) = serde_json::from_str::<Vec<Product>>(&data) {
-                return products;
+    match File::open(FILE_PATH) {
+        Ok(mut file) => {
+            let mut data = String::new();
+            match file.read_to_string(&mut data) {
+                Ok(_) => {
+                    match serde_json::from_str::<Vec<Product>>(&data) {
+                        Ok(products) => products,
+                        Err(e) => {
+                            eprintln!("Failed to parse JSON: {}", e);
+                            Vec::new()
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read file content: {}", e);
+                    Vec::new()
+                }
             }
         }
+        Err(e) => {
+            eprintln!("Failed to open file: {}", e);
+            Vec::new()
+        }
     }
-    Vec::new()
 }
 
 fn main() {
@@ -58,13 +73,16 @@ fn main() {
             let product_clone = Arc::clone(&products);
             move |siv| {
                 let product_type = siv.call_on_name("product_type", |view: &mut EditView| {
-                    view.get_content()}).unwrap().to_string();
+                    view.get_content()
+                }).unwrap().to_string();
 
                 let quantity = siv.call_on_name("quantity", |view: &mut EditView| {
-                    view.get_content()}).unwrap().parse::<usize>().unwrap_or(0);
+                    view.get_content()
+                }).unwrap().parse::<usize>().unwrap_or(0);
 
                 let price_per_unit = siv.call_on_name("price_per_unit", |view: &mut EditView| {
-                    view.get_content()}).unwrap().parse::<f64>().unwrap_or(0.0);
+                    view.get_content()
+                }).unwrap().parse::<f64>().unwrap_or(0.0);
 
                 if product_type.is_empty() {
                     siv.add_layer(Dialog::info("Error: Please enter a product type."));
@@ -92,15 +110,15 @@ fn main() {
 
                 let mut product_store = product_clone.lock().unwrap();
                 product_store.push(product.clone());
-// Save to file
+                // Save to file
                 if let Err(err) = save_products_to_file(&product_store) {
                     siv.add_layer(Dialog::info(format!("Error: saving the product: {}", err)));
                 } else {
                     siv.add_layer(Dialog::info("Product saved successfully!"))
                 }
-                siv.call_on_name("product_type", |view: &mut EditView| {view.set_content("");});
-                siv.call_on_name("quantity", |view: &mut EditView| {view.set_content("");});
-                siv.call_on_name("price_per_unit", |view: &mut EditView| {view.set_content("");});
+                siv.call_on_name("product_type", |view: &mut EditView| { view.set_content(""); });
+                siv.call_on_name("quantity", |view: &mut EditView| { view.set_content(""); });
+                siv.call_on_name("price_per_unit", |view: &mut EditView| { view.set_content(""); });
             }
         })
         .button("Show All", {
@@ -110,7 +128,7 @@ fn main() {
                 let mut output = String::new();
 
                 for (index, product) in product_store.iter().enumerate() {
-                    output.push_str(&format!("{}. Item: {}, Qty: {}, Price: ${}, Sales Tax: {}, Total Price: ${}\n",
+                    output.push_str(&format!("{}. Item: {}, Qty: {}, Price: ${}, Sales Tax: ${:.2}, Total Price: ${:.2}\n",
                                              index + 1,
                                              product.product_type,
                                              product.quantity,
@@ -154,6 +172,7 @@ fn main() {
                         siv.pop_layer();
                     })
                 );
+                siv.call_on_name("delete_id", |view: &mut EditView| { view.set_content(""); });
             }
         })
         .button("Quit", |siv: &mut Cursive| siv.quit()));
