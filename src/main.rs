@@ -1,60 +1,8 @@
-use cursive::theme::{BaseColor, Color, PaletteColor, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::views::{Dialog, EditView, ListView};
 use cursive::{Cursive, CursiveExt};
-use serde::{Deserialize, Serialize};
-use std::fs::{File, OpenOptions};
-use std::io::{self, Read};
+use inventory_system_app::{custom_theme, load_products_from_file, save_products_to_file, Product};
 use std::sync::{Arc, Mutex};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Product {
-    product_type: String,
-    quantity: usize,
-    price_per_unit: f64,
-    sales_tax: f64,
-    total_price: f64,
-}
-
-// db file
-const FILE_PATH: &str = "inventory.json";
-
-fn save_products_to_file(products: &Vec<Product>) -> io::Result<()> {
-    let file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(FILE_PATH)?;
-    serde_json::to_writer(file, products)?;
-    Ok(())
-}
-
-fn load_products_from_file() -> Vec<Product> {
-    match File::open(FILE_PATH) {
-        Ok(mut file) => {
-            let mut data = String::new();
-            match file.read_to_string(&mut data) {
-                Ok(_) => {
-                    match serde_json::from_str::<Vec<Product>>(&data) {
-                        Ok(products) => products,
-                        Err(e) => {
-                            eprintln!("Failed to parse JSON: {}", e);
-                            Vec::new()
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to read file content: {}", e);
-                    Vec::new()
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to open file: {}", e);
-            Vec::new()
-        }
-    }
-}
 
 fn main() {
     let mut siv = Cursive::default();
@@ -101,7 +49,7 @@ fn main() {
                 let total_price = (price_per_unit + sales_tax) * quantity as f64;
 
                 let product = Product {
-                    product_type,
+                    product_name: product_type,
                     quantity,
                     price_per_unit,
                     sales_tax,
@@ -130,7 +78,7 @@ fn main() {
                 for (index, product) in product_store.iter().enumerate() {
                     output.push_str(&format!("{}. Item: {}, Qty: {}, Price: ${}, Sales Tax: ${:.2}, Total Price: ${:.2}\n",
                                              index + 1,
-                                             product.product_type,
+                                             product.product_name,
                                              product.quantity,
                                              product.price_per_unit,
                                              product.sales_tax,
@@ -166,24 +114,15 @@ fn main() {
                             } else {
                                 siv.add_layer(Dialog::info("Error: Please enter a valid ID."));
                             }
+                            siv.call_on_name("delete_id", |view: &mut EditView| { view.set_content(""); });
                         }
                     })
                     .button("Cancel", |siv| {
                         siv.pop_layer();
                     })
                 );
-                siv.call_on_name("delete_id", |view: &mut EditView| { view.set_content(""); });
             }
         })
         .button("Quit", |siv: &mut Cursive| siv.quit()));
     siv.run();
-}
-fn custom_theme() -> Theme {
-    let mut theme = Theme::retro();
-    theme.palette[PaletteColor::Background] = Color::Light(BaseColor::Cyan);
-    theme.palette[PaletteColor::View] = Color::Light(BaseColor::White);
-    theme.palette[PaletteColor::Primary] = Color::Dark(BaseColor::Black);
-    theme.palette[PaletteColor::Secondary] = Color::Dark(BaseColor::Black);
-    theme.palette[PaletteColor::Highlight] = Color::Light(BaseColor::Green);
-    theme
 }
