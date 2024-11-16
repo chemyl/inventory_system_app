@@ -1,5 +1,8 @@
 ### Text-based User Interface app. Inventory System
 
+![Rust Version](https://img.shields.io/badge/rust-1.82.0%20-green)
+![Build Status](https://github.com/chemyl/inventory_system_app/actions/workflows/rust.yml/badge.svg)
+
 - create binary crate -> `cargo new project`
 - add dependency to `cargo.toml`-> `cursive = "0.21.1"`
 - add dependency to `cargo.toml`-> `serde = "1.0"` with feature
